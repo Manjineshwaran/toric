@@ -557,7 +557,9 @@ def draw_line_on_frame(frame: np.ndarray,
                        incision_angle: float = None,
                        line_color: Tuple[int, int, int] = (0, 255, 255),
                        line_thickness: int = 2,
-                       preop_limbus_radius: int = None) -> np.ndarray:
+                       preop_limbus_radius: int = None,
+                       show_reference: bool = True,
+                       show_limbus: bool = True) -> np.ndarray:
     """
     Draw lines on a frame at specified angles from center.
     Matches Tab 3 (preop axis setup) visual style.
@@ -585,21 +587,22 @@ def draw_line_on_frame(frame: np.ndarray,
     length = int(radius * 1.5)
     
     # Draw reference line (broken yellow line) - matches Tab 3
-    angle_rad = np.radians(transformed_angle)
-    x1 = int(center[0] + length * np.cos(angle_rad))
-    y1 = int(center[1] + length * np.sin(angle_rad))
-    x2 = int(center[0] - length * np.cos(angle_rad))
-    y2 = int(center[1] - length * np.sin(angle_rad))
-    # Draw broken/dotted yellow line (simulate with segments)
-    num_segments = 20
-    dx = (x2 - x1) / num_segments
-    dy = (y2 - y1) / num_segments
-    for i in range(0, num_segments, 2):  # Draw every other segment for dotted effect
-        seg_x1 = int(x1 + i * dx)
-        seg_y1 = int(y1 + i * dy)
-        seg_x2 = int(x1 + (i + 1) * dx)
-        seg_y2 = int(y1 + (i + 1) * dy)
-        cv2.line(frame_copy, (seg_x1, seg_y1), (seg_x2, seg_y2), (0, 255, 255), line_thickness)  # Yellow in BGR
+    if show_reference:
+        angle_rad = np.radians(transformed_angle)
+        x1 = int(center[0] + length * np.cos(angle_rad))
+        y1 = int(center[1] + length * np.sin(angle_rad))
+        x2 = int(center[0] - length * np.cos(angle_rad))
+        y2 = int(center[1] - length * np.sin(angle_rad))
+        # Draw broken/dotted yellow line (simulate with segments)
+        num_segments = 20
+        dx = (x2 - x1) / num_segments
+        dy = (y2 - y1) / num_segments
+        for i in range(0, num_segments, 2):  # Draw every other segment for dotted effect
+            seg_x1 = int(x1 + i * dx)
+            seg_y1 = int(y1 + i * dy)
+            seg_x2 = int(x1 + (i + 1) * dx)
+            seg_y2 = int(y1 + (i + 1) * dy)
+            cv2.line(frame_copy, (seg_x1, seg_y1), (seg_x2, seg_y2), (0, 255, 255), line_thickness)  # Yellow in BGR
     
     # Draw toric line (if provided) - matches Tab 3 style: green, dotted, with parallel offset lines
     # Calculate relative to transformed reference angle (base = reference)
@@ -671,16 +674,17 @@ def draw_line_on_frame(frame: np.ndarray,
     cv2.circle(frame_copy, center, 8, (0, 255, 0), -1)
     
     # Draw limbus circle (broken green line) - matches Tab 3
-    # Draw broken/dotted green circle by drawing arc segments
-    num_circle_segments = 60
-    for i in range(0, num_circle_segments, 2):  # Draw every other segment for dotted effect
-        angle1 = 2 * np.pi * i / num_circle_segments
-        angle2 = 2 * np.pi * (i + 1) / num_circle_segments
-        x1_circle = int(center[0] + radius * np.cos(angle1))
-        y1_circle = int(center[1] + radius * np.sin(angle1))
-        x2_circle = int(center[0] + radius * np.cos(angle2))
-        y2_circle = int(center[1] + radius * np.sin(angle2))
-        cv2.line(frame_copy, (x1_circle, y1_circle), (x2_circle, y2_circle), (0, 255, 0), line_thickness)
+    if show_limbus:
+        # Draw broken/dotted green circle by drawing arc segments
+        num_circle_segments = 60
+        for i in range(0, num_circle_segments, 2):  # Draw every other segment for dotted effect
+            angle1 = 2 * np.pi * i / num_circle_segments
+            angle2 = 2 * np.pi * (i + 1) / num_circle_segments
+            x1_circle = int(center[0] + radius * np.cos(angle1))
+            y1_circle = int(center[1] + radius * np.sin(angle1))
+            x2_circle = int(center[0] + radius * np.cos(angle2))
+            y2_circle = int(center[1] + radius * np.sin(angle2))
+            cv2.line(frame_copy, (x1_circle, y1_circle), (x2_circle, y2_circle), (0, 255, 0), line_thickness)
     
     # Add text overlay
     text_y = 30

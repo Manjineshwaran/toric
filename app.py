@@ -488,7 +488,7 @@ class ToricTrackerUI(QMainWindow):
         self.btn_load_preop.setFixedWidth(200)
         self.btn_load_preop.setStyleSheet("""
             QPushButton {
-                background-color: #9e9e9e;
+                background-color: #2196F3;
                 color: white;
                 border: none;
                 padding: 8px 15px;
@@ -496,7 +496,7 @@ class ToricTrackerUI(QMainWindow):
                 font-size: 11px;
             }
             QPushButton:hover {
-                background-color: #757575;
+                background-color: #1976D2;
             }
         """)
         self.btn_load_preop.clicked.connect(self.load_preop_model)
@@ -590,7 +590,7 @@ class ToricTrackerUI(QMainWindow):
         self.btn_submit_config = QPushButton("Submit / Start Registration")
         self.btn_submit_config.setStyleSheet("""
             QPushButton {
-                background-color: #9e9e9e;
+                background-color: #2196F3;
                 color: white;
                 border: none;
                 padding: 12px;
@@ -599,7 +599,7 @@ class ToricTrackerUI(QMainWindow):
                 border-radius: 5px;
             }
             QPushButton:hover {
-                background-color: #757575;
+                background-color: #1976D2;
             }
         """)
         self.btn_submit_config.clicked.connect(self.submit_configuration)
@@ -1054,7 +1054,7 @@ class ToricTrackerUI(QMainWindow):
         self.btn_start_tracking.setFixedHeight(35)  # Set fixed height
         self.btn_start_tracking.setStyleSheet("""
             QPushButton {
-                background-color: #9e9e9e;
+                background-color: #2196F3;
                 color: white;
                 border: none;
                 padding: 8px;
@@ -1062,7 +1062,7 @@ class ToricTrackerUI(QMainWindow):
                 font-weight: bold;
             }
             QPushButton:hover {
-                background-color: #757575;
+                background-color: #1976D2;
             }
         """)
         self.btn_start_tracking.clicked.connect(self.start_tracking)
@@ -1100,17 +1100,38 @@ class ToricTrackerUI(QMainWindow):
         checkbox_layout.setContentsMargins(0, 5, 0, 5)
         checkbox_layout.setSpacing(6)
         
-        self.check_ref_lines_tracking = QCheckBox("Show Ref Lines")
+        self.check_ref_lines_tracking = QCheckBox("Show Reference Line")
         self.check_ref_lines_tracking.setChecked(True)
         
-        self.check_toric_tracking = QCheckBox("Show Toric Axis (Dynamic)")
+        self.check_toric_tracking = QCheckBox("Show Toric Axis")
         self.check_toric_tracking.setChecked(True)
         
-        self.check_iris_ring = QCheckBox("Show Iris Ring")
+        self.check_iris_ring = QCheckBox("Show Limbus Circle")
         self.check_iris_ring.setChecked(True)
         
-        self.check_incision_tracking = QCheckBox("Show incision axis")
+        self.check_incision_tracking = QCheckBox("Show Incision Axis")
         self.check_incision_tracking.setChecked(True)
+        
+        # Create checkbox state references for dynamic updates during tracking
+        # Initialize with current checkbox states
+        self.tracking_show_reference_ref = [self.check_ref_lines_tracking.isChecked()]
+        self.tracking_show_toric_ref = [self.check_toric_tracking.isChecked()]
+        self.tracking_show_incision_ref = [self.check_incision_tracking.isChecked()]
+        self.tracking_show_limbus_ref = [self.check_iris_ring.isChecked()]
+        
+        # Connect checkboxes to update state references
+        self.check_ref_lines_tracking.stateChanged.connect(
+            lambda state: self._update_tracking_checkbox('reference', state)
+        )
+        self.check_toric_tracking.stateChanged.connect(
+            lambda state: self._update_tracking_checkbox('toric', state)
+        )
+        self.check_incision_tracking.stateChanged.connect(
+            lambda state: self._update_tracking_checkbox('incision', state)
+        )
+        self.check_iris_ring.stateChanged.connect(
+            lambda state: self._update_tracking_checkbox('limbus', state)
+        )
         
         checkbox_layout.addWidget(self.check_ref_lines_tracking)
         checkbox_layout.addWidget(self.check_toric_tracking)
@@ -2274,7 +2295,12 @@ class ToricTrackerUI(QMainWindow):
                     pause_flag_ref=self.tracking_pause_flag,
                     show_reference=self.check_ref_lines_tracking.isChecked(),
                     show_toric=self.check_toric_tracking.isChecked(),
-                    show_incision=self.check_incision_tracking.isChecked()
+                    show_incision=self.check_incision_tracking.isChecked(),
+                    show_limbus=self.check_iris_ring.isChecked(),
+                    show_reference_ref=self.tracking_show_reference_ref,
+                    show_toric_ref=self.tracking_show_toric_ref,
+                    show_incision_ref=self.tracking_show_incision_ref,
+                    show_limbus_ref=self.tracking_show_limbus_ref
                 )
                 # Store stats logger for later saving
                 self.tracking_stats_logger = stats_logger
@@ -2605,6 +2631,18 @@ class ToricTrackerUI(QMainWindow):
         self.canvas.show_incision_axis = self.check_incision.isChecked()
         self.canvas.show_iris_box = self.check_iris.isChecked()
         self.canvas.update()
+    
+    def _update_tracking_checkbox(self, checkbox_type: str, state: int):
+        """Update tracking checkbox state reference for dynamic updates during tracking"""
+        checked = (state == 2)  # Qt.Checked = 2
+        if checkbox_type == 'reference':
+            self.tracking_show_reference_ref[0] = checked
+        elif checkbox_type == 'toric':
+            self.tracking_show_toric_ref[0] = checked
+        elif checkbox_type == 'incision':
+            self.tracking_show_incision_ref[0] = checked
+        elif checkbox_type == 'limbus':
+            self.tracking_show_limbus_ref[0] = checked
     
     def reset_all(self):
         # Delete output folder before resetting

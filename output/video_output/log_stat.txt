@@ -3,38 +3,74 @@ Frame-by-Frame Rotation Statistics
 ==============================================
 
 Frame 1:
-  Rotation: 5.42°
-  Confidence: 67.5%
-  Matches: 9
+  Rotation: -129.74°
+  Confidence: 98.3%
+  Matches: 95
   Reliable: True
 
 Frame 61:
-  Rotation: -128.16°
-  Confidence: 97.0%
-  Matches: 54
-  Reliable: True
+  Rotation: 84.49°
+  Confidence: 46.6%
+  Matches: 11
+  Reliable: False
 
 Frame 121:
-  Rotation: -130.16°
-  Confidence: 99.2%
-  Matches: 123
+  Rotation: -129.49°
+  Confidence: 97.9%
+  Matches: 133
   Reliable: True
 
 Frame 181:
-  Rotation: -129.72°
-  Confidence: 98.9%
-  Matches: 164
+  Rotation: -129.66°
+  Confidence: 98.6%
+  Matches: 159
   Reliable: True
 
 Frame 241:
-  Rotation: -131.07°
-  Confidence: 98.7%
-  Matches: 102
+  Rotation: -140.96°
+  Confidence: 72.9%
+  Matches: 17
   Reliable: True
 
 Frame 301:
-  Rotation: -125.84°
-  Confidence: 99.0%
-  Matches: 92
+  Rotation: -126.50°
+  Confidence: 91.3%
+  Matches: 38
+  Reliable: True
+
+Frame 361:
+  Rotation: -127.45°
+  Confidence: 98.4%
+  Matches: 100
+  Reliable: True
+
+Frame 421:
+  Rotation: 40.89°
+  Confidence: 52.6%
+  Matches: 21
+  Reliable: True
+
+Frame 481:
+  Rotation: -124.04°
+  Confidence: 57.1%
+  Matches: 9
+  Reliable: True
+
+Frame 541:
+  Rotation: -126.90°
+  Confidence: 99.1%
+  Matches: 144
+  Reliable: True
+
+Frame 661:
+  Rotation: -119.56°
+  Confidence: 74.2%
+  Matches: 50
+  Reliable: True
+
+Frame 721:
+  Rotation: -128.55°
+  Confidence: 99.4%
+  Matches: 102
   Reliable: True
 

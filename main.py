@@ -345,7 +345,9 @@ def process_video_for_ui_simple(frame_callback: Callable[[np.ndarray, float, flo
             0.0,  # No rotation offset (simple mode)
             toric_angle=toric_angle if show_toric else None,
             incision_angle=incision_angle if show_incision else None,
-            preop_limbus_radius=preop_limbus_radius
+            preop_limbus_radius=preop_limbus_radius,
+            show_reference=show_reference,
+            show_limbus=True  # Simple mode always shows limbus
         )
         
         # Write frame to video (non-blocking)
@@ -381,7 +383,12 @@ def process_video_for_ui(frame_callback: Callable[[np.ndarray, float, float], No
                          pause_flag_ref: list,
                          show_reference: bool = True,
                          show_toric: bool = True,
-                         show_incision: bool = True) -> RotationStatsLogger:
+                         show_incision: bool = True,
+                         show_limbus: bool = True,
+                         show_reference_ref: list = None,
+                         show_toric_ref: list = None,
+                         show_incision_ref: list = None,
+                         show_limbus_ref: list = None) -> RotationStatsLogger:
     """
     Process video with live tracking and UI callback integration.
     
@@ -621,6 +628,13 @@ def process_video_for_ui(frame_callback: Callable[[np.ndarray, float, float], No
             transformed_angle = reference_angle + rotation_angle_to_use
             # Get preop limbus radius for offset calculation (matches Tab 3)
             preop_limbus_radius = preop_result.limbus_info.radius if preop_result and preop_result.limbus_info else None
+            
+            # Read checkbox states dynamically if references provided, otherwise use defaults
+            current_show_reference = show_reference_ref[0] if show_reference_ref is not None else show_reference
+            current_show_toric = show_toric_ref[0] if show_toric_ref is not None else show_toric
+            current_show_incision = show_incision_ref[0] if show_incision_ref is not None else show_incision
+            current_show_limbus = show_limbus_ref[0] if show_limbus_ref is not None else show_limbus
+            
             final_frame = draw_line_on_frame(
                 frame,
                 current_limbus_center,
@@ -628,9 +642,11 @@ def process_video_for_ui(frame_callback: Callable[[np.ndarray, float, float], No
                 transformed_angle,
                 reference_angle,
                 rotation_angle_to_use,
-                toric_angle=toric_angle if show_toric else None,
-                incision_angle=incision_angle if show_incision else None,
-                preop_limbus_radius=preop_limbus_radius
+                toric_angle=toric_angle if current_show_toric else None,
+                incision_angle=incision_angle if current_show_incision else None,
+                preop_limbus_radius=preop_limbus_radius,
+                show_reference=current_show_reference,
+                show_limbus=current_show_limbus
             )
         else:
             # No rotation data available yet
