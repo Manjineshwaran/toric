@@ -1,0 +1,28 @@
+Frame-by-Frame Rotation Statistics
+
+==============================================
+
+Frame 1:
+  Rotation: 5.42°
+  Confidence: 67.5%
+  Matches: 9
+  Reliable: True
+
+Frame 61:
+  Rotation: -128.35°
+  Confidence: 97.4%
+  Matches: 52
+  Reliable: True
+
+Frame 121:
+  Rotation: -174.88°
+  Confidence: 78.9%
+  Matches: 15
+  Reliable: True
+
+Frame 181:
+  Rotation: -129.16°
+  Confidence: 97.1%
+  Matches: 110
+  Reliable: True
+
