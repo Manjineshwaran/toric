@@ -588,8 +588,12 @@ def draw_line_on_frame(frame: np.ndarray,
     cv2.line(frame_copy, (x1, y1), (x2, y2), line_color, line_thickness)
     
     # Draw toric line (if provided)
+    # Calculate relative to transformed reference angle (base = reference)
     if toric_angle is not None:
-        transformed_toric = toric_angle + rotation_angle
+        # Offset between toric and reference is constant; keep offset but rotate with reference
+        toric_offset = toric_angle - reference_angle
+        # Use same rotation as reference, then apply offset in the same frame (subtract to keep relative CW/CCW)
+        transformed_toric = transformed_angle - toric_offset
         # Normalize to [0, 360)
         while transformed_toric >= 360:
             transformed_toric -= 360
@@ -603,8 +607,12 @@ def draw_line_on_frame(frame: np.ndarray,
         cv2.line(frame_copy, (x1, y1), (x2, y2), (0, 255, 0), line_thickness)  # Green for toric
     
     # Draw incision line (if provided)
+    # Calculate relative to transformed reference angle (base = reference)
     if incision_angle is not None:
-        transformed_incision = incision_angle + rotation_angle
+        # Offset between incision and reference is constant; keep offset but rotate with reference
+        incision_offset = incision_angle - reference_angle
+        # Use same rotation as reference, then apply offset in the same frame (subtract to keep relative CW/CCW)
+        transformed_incision = transformed_angle - incision_offset
         # Normalize to [0, 360)
         while transformed_incision >= 360:
             transformed_incision -= 360
@@ -632,7 +640,8 @@ def draw_line_on_frame(frame: np.ndarray,
     
     # Add toric and incision angle text if provided
     if toric_angle is not None:
-        transformed_toric = toric_angle + rotation_angle
+        toric_offset = toric_angle - reference_angle
+        transformed_toric = transformed_angle - toric_offset
         while transformed_toric >= 360:
             transformed_toric -= 360
         while transformed_toric < 0:
@@ -641,7 +650,8 @@ def draw_line_on_frame(frame: np.ndarray,
         #            cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
     
     if incision_angle is not None:
-        transformed_incision = incision_angle + rotation_angle
+        incision_offset = incision_angle - reference_angle
+        transformed_incision = transformed_angle - incision_offset
         while transformed_incision >= 360:
             transformed_incision -= 360
         while transformed_incision < 0:
