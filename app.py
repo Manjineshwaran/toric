@@ -2649,15 +2649,27 @@ class ToricTrackerUI(QMainWindow):
         self.delete_output_folder()
         self._stop_intraop_display_thread()
         
+        # Stop tracking if active
+        if hasattr(self, 'is_tracking') and self.is_tracking:
+            self.stop_tracking()
+        
         # Reset handler to defaults
         self.config_handler.reset_to_defaults()
+        
+        # Set default model paths to intraop_latest.pt for both preop and intraop
+        default_model = "model\\intraop_latest.pt"
+        self.config_handler.set_preop_model_path(default_model)
+        self.config_handler.set_intraop_model_path(default_model)
         
         # Reset configuration tab
         self.radio_normal.setChecked(True)
         self.confidence_input.setText(str(self.config_handler.get_yolo_confidence()))
         self.matching_confidence_input.setText(str(self.config_handler.get_matching_confidence_threshold()))
-        self.label_preop_status.setText("Pre-op Model: None loaded.")
-        self.label_intraop_status.setText("Intra-op Model: None loaded.")
+        
+        # Update model status labels with default model
+        default_model_name = os.path.basename(default_model)
+        self.label_preop_status.setText(f"Pre-op Model: {default_model_name}")
+        self.label_intraop_status.setText(f"Intra-op Model: {default_model_name}")
         
         # Reset pre-op image tab
         self.radio_file.setChecked(True)
@@ -2697,13 +2709,48 @@ class ToricTrackerUI(QMainWindow):
         self.rotation_label.setText("Current Angle of rotation: 0.0 deg")
         self.radius_input.clear()
         
+        # Reset tracking checkboxes
+        if hasattr(self, 'check_ref_lines_tracking'):
+            self.check_ref_lines_tracking.setChecked(True)
+        if hasattr(self, 'check_toric_tracking'):
+            self.check_toric_tracking.setChecked(True)
+        if hasattr(self, 'check_incision_tracking'):
+            self.check_incision_tracking.setChecked(True)
+        if hasattr(self, 'check_iris_ring'):
+            self.check_iris_ring.setChecked(True)
+        
+        # Reset tracking checkbox state references
+        if hasattr(self, 'tracking_show_reference_ref'):
+            self.tracking_show_reference_ref[0] = True
+        if hasattr(self, 'tracking_show_toric_ref'):
+            self.tracking_show_toric_ref[0] = True
+        if hasattr(self, 'tracking_show_incision_ref'):
+            self.tracking_show_incision_ref[0] = True
+        if hasattr(self, 'tracking_show_limbus_ref'):
+            self.tracking_show_limbus_ref[0] = True
+        
+        # Clear video display
+        if hasattr(self, 'video_display'):
+            self.video_display.clear()
+        
         # Clear canvases
         self.preop_canvas.pixmap = None
         self.preop_canvas.update()
         self.canvas.pixmap = None
         self.canvas.update()
         
-        print("Application state reset")
+        # Show confirmation message
+        QMessageBox.information(
+            self, 
+            "Reset Complete", 
+            "Application state has been reset:\n\n"
+            "- All application state cleared\n"
+            "- Output folder deleted\n"
+            "- Default models set (intraop_latest.pt for both preop and intraop)\n"
+            "- All UI elements reset to defaults"
+        )
+        
+        print("Application state reset - all cleared, output folder deleted, default models set")
     
     def delete_output_folder(self):
         """Delete the output folder and all its contents"""

@@ -303,7 +303,7 @@ class PipelineConfigHandler:
     def reset_to_defaults(self):
         """Reset all configuration to default values"""
         with self._config_lock:
-            self._preop_yolo_model = "model\\preop_latest.pt"
+            self._preop_yolo_model = "model\\intraop_latest.pt"
             self._intraop_yolo_model = "model\\intraop_latest.pt"
             self._yolo_confidence = 0.85
             self._matching_confidence_threshold = 0.75
