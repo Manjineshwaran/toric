@@ -72,6 +72,7 @@ class SharedRotationState:
         self.limbus_radius = None
         self.confidence = 0.0
         self.frame_num = 0
+        self.skip_analysis_frames = 0  # Counter to skip analysis for N frames
     
     def update(self, rotation_angle: float, limbus_center: Tuple[int, int], 
                limbus_radius: int, confidence: float, frame_num: int):
@@ -88,6 +89,19 @@ class SharedRotationState:
         with self.lock:
             return (self.rotation_angle, self.limbus_center, self.limbus_radius, 
                    self.confidence, self.frame_num)
+    
+    def set_skip_analysis(self, frames: int):
+        """Set number of frames to skip analysis."""
+        with self.lock:
+            self.skip_analysis_frames = frames
+    
+    def should_skip_analysis(self) -> bool:
+        """Check if analysis should be skipped and decrement counter."""
+        with self.lock:
+            if self.skip_analysis_frames > 0:
+                self.skip_analysis_frames -= 1
+                return True
+            return False
 
 
 class RotationStatsLogger:
@@ -434,6 +448,11 @@ def analyze_frame_async(frame_queue: queue.Queue,
             if quit_flag_ref[0]:
                 break
             
+            # Check if analysis should be skipped (high confidence mode)
+            if shared_state.should_skip_analysis():
+                print(f"[ANALYSIS] Frame {frame_num}: Skipping analysis (high confidence mode, smooth playback)")
+                continue  # Skip entire analysis process
+            
             # Analyze this frame
             print(f"[ANALYSIS] Frame {frame_num}: Starting analysis...")
             
@@ -506,11 +525,18 @@ def analyze_frame_async(frame_queue: queue.Queue,
                     
                     # Update shared state with best rotation data
                     # Use rotation_angle from best result (this is the final calculated rotation)
+                    confidence_value = best_result['confidence']
+                    
+                    # If confidence > 90%, skip analysis for next 1000 frames for smooth playback
+                    if confidence_value > 0.9:
+                        shared_state.set_skip_analysis(1000)
+                        print(f"[ANALYSIS] Frame {frame_num}: High confidence ({confidence_value*100:.1f}%) - Skipping analysis for next 1000 frames for smooth playback")
+                    
                     shared_state.update(
                         best_result['rotation_angle'],
                         limbus_center,
                         limbus_radius,
-                        best_result['confidence'],
+                        confidence_value,
                         frame_num
                     )
                     

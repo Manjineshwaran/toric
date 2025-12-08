@@ -295,8 +295,17 @@ def process_video_for_ui_simple(frame_callback: Callable[[np.ndarray, float, flo
     frames_written_count = 0
     last_limbus = None  # Store last good detection
     
+    # Frame processing settings
+    FRAME_PROCESS_INTERVAL = 4  # Process 1 frame out of every N frames (1 out of 4)
+    
+    # Calculate frame delay for video timing
+    # Since we process 1/4 frames, show each processed frame for 4x duration to maintain FPS
+    base_frame_delay_ms = max(1, int(1000 / fps)) if fps > 0 else 33
+    frame_delay_ms = base_frame_delay_ms * FRAME_PROCESS_INTERVAL
+    
     print("\n[PROCESSING] Starting video processing...")
-    print("[INFO] Fast mode: Real-time limbus detection on every frame!")
+    print(f"[INFO] Fast mode: Processing 1 out of {FRAME_PROCESS_INTERVAL} frames")
+    print(f"[INFO] Frame delay: {frame_delay_ms}ms (adjusted for {FRAME_PROCESS_INTERVAL}x frame skipping)")
     
     while cap.isOpened() and not quit_flag_ref[0]:
         # Check pause flag
@@ -306,11 +315,22 @@ def process_video_for_ui_simple(frame_callback: Callable[[np.ndarray, float, flo
         if quit_flag_ref[0]:
             break
         
+        frame_num += 1
+        
+        # Skip frames: only process every 4th frame (1, 5, 9, 13, ...)
+        if (frame_num - 1) % FRAME_PROCESS_INTERVAL != 0:
+            # Skip this frame - read and discard without processing
+            ret = cap.read()[0]
+            if not ret:
+                break
+            continue  # Skip all processing for this frame
+        
+        # Process this frame (every 4th frame)
         ret, frame = cap.read()
         if not ret:
             break
         
-        frame_num += 1
+        frame_start_time = time.time()
         
         # Detect limbus on current frame (fast ~200ms)
         try:
@@ -363,8 +383,15 @@ def process_video_for_ui_simple(frame_callback: Callable[[np.ndarray, float, flo
         except:
             pass
         
+        # Maintain FPS: wait appropriate time for processed frame
+        if not is_camera_mode:
+            elapsed_ms = int((time.time() - frame_start_time) * 1000)
+            if elapsed_ms < (frame_delay_ms - 2):
+                wait_time = frame_delay_ms - elapsed_ms
+                time.sleep(wait_time / 1000.0)
+        
         # Print progress
-        if frame_num % 120 == 0:
+        if frame_num % (120 * FRAME_PROCESS_INTERVAL) == 0:
             print(f"  Frame {frame_num}: Limbus detected, angles drawn")
     
     # Close video
@@ -521,17 +548,21 @@ def process_video_for_ui(frame_callback: Callable[[np.ndarray, float, float], No
     # Frame queue for analysis thread
     frame_queue = queue.Queue()
     
-    # Analysis thread settings
-    FRAME_SKIP_INTERVAL = 60  # Analyze 1 frame every N frames
+    # Frame processing settings
+    FRAME_PROCESS_INTERVAL = 4  # Process 1 frame out of every N frames (1 out of 4)
+    FRAME_SKIP_INTERVAL = 60  # Analyze 1 frame every N frames (for analysis thread)
     MIN_CONFIDENCE_THRESHOLD = matching_confidence_threshold
     
     # Calculate frame delay for video timing
-    frame_delay_ms = max(1, int(1000 / fps)) if fps > 0 else 33
+    # Since we process 1/4 frames, show each processed frame for 4x duration to maintain FPS
+    base_frame_delay_ms = max(1, int(1000 / fps)) if fps > 0 else 33
+    frame_delay_ms = base_frame_delay_ms * FRAME_PROCESS_INTERVAL
     
     print(f"\n[CONFIG] Processing configuration:")
-    print(f"  Frame skip interval: {FRAME_SKIP_INTERVAL}")
+    print(f"  Frame process interval: {FRAME_PROCESS_INTERVAL} (process 1 out of {FRAME_PROCESS_INTERVAL} frames)")
+    print(f"  Analysis skip interval: {FRAME_SKIP_INTERVAL} (analyze 1 out of {FRAME_SKIP_INTERVAL} frames)")
     print(f"  Min confidence threshold: {MIN_CONFIDENCE_THRESHOLD}")
-    print(f"  Frame delay: {frame_delay_ms}ms")
+    print(f"  Frame delay: {frame_delay_ms}ms (adjusted for {FRAME_PROCESS_INTERVAL}x frame skipping)")
     
     # Initialize video writer
     # output_video_path = os.path.join(video_output_dir, "output_with_lines.mp4")
@@ -568,20 +599,31 @@ def process_video_for_ui(frame_callback: Callable[[np.ndarray, float, float], No
         if quit_flag_ref[0]:
             break
         
+        frame_num += 1
+        
+        # Skip frames: only process every 4th frame (1, 5, 9, 13, ...)
+        if (frame_num - 1) % FRAME_PROCESS_INTERVAL != 0:
+            # Skip this frame - read and discard without processing
+            ret = cap.read()[0]
+            if not ret:
+                break
+            continue  # Skip all processing for this frame
+        
+        # Process this frame (every 4th frame)
         ret, frame = cap.read()
         if not ret:
             break
         
-        frame_num += 1
         frame_start_time = time.time()
         
         # Get latest rotation data from shared state
         rotation_angle, limbus_center, limbus_radius, confidence, analyzed_frame_num = shared_state.get()
         
-        # Determine if this frame should be analyzed
+        # Determine if this frame should be analyzed (for analysis thread)
         should_analyze = (frame_num == 1) or ((frame_num - 1) % FRAME_SKIP_INTERVAL == 0)
         
         # Send frame to analysis queue
+        # Note: Analysis thread will automatically skip processing if confidence > 90% (handled in analyze_frame_async)
         if should_analyze and frame_queue.qsize() < 10:
             try:
                 frame_copy = frame.copy()
