@@ -220,6 +220,7 @@ def process_video_for_ui_simple(frame_callback: Callable[[np.ndarray, float, flo
     toric_angle = config_handler.get_toric_angle()
     incision_angle = config_handler.get_incision_angle()
     yolo_model_path = config_handler.get_intraop_model_path()
+    preop_result = config_handler.get_preop_result()  # Get preop result for limbus radius
     
     # Validate inputs
     if intraop_video_path is None:
@@ -333,6 +334,8 @@ def process_video_for_ui_simple(frame_callback: Callable[[np.ndarray, float, flo
                 current_radius = min(width, height) // 4
         
         # Draw lines at configured angles (no rotation calculation - just draw the angles!)
+        # Get preop limbus radius for offset calculation (matches Tab 3)
+        preop_limbus_radius = preop_result.limbus_info.radius if preop_result and preop_result.limbus_info else None
         final_frame = draw_line_on_frame(
             frame,
             current_center,
@@ -341,7 +344,8 @@ def process_video_for_ui_simple(frame_callback: Callable[[np.ndarray, float, flo
             reference_angle,
             0.0,  # No rotation offset (simple mode)
             toric_angle=toric_angle if show_toric else None,
-            incision_angle=incision_angle if show_incision else None
+            incision_angle=incision_angle if show_incision else None,
+            preop_limbus_radius=preop_limbus_radius
         )
         
         # Write frame to video (non-blocking)
@@ -615,6 +619,8 @@ def process_video_for_ui(frame_callback: Callable[[np.ndarray, float, float], No
             
             # Draw lines using CURRENT frame's limbus + analysis thread's rotation angle
             transformed_angle = reference_angle + rotation_angle_to_use
+            # Get preop limbus radius for offset calculation (matches Tab 3)
+            preop_limbus_radius = preop_result.limbus_info.radius if preop_result and preop_result.limbus_info else None
             final_frame = draw_line_on_frame(
                 frame,
                 current_limbus_center,
@@ -623,7 +629,8 @@ def process_video_for_ui(frame_callback: Callable[[np.ndarray, float, float], No
                 reference_angle,
                 rotation_angle_to_use,
                 toric_angle=toric_angle if show_toric else None,
-                incision_angle=incision_angle if show_incision else None
+                incision_angle=incision_angle if show_incision else None,
+                preop_limbus_radius=preop_limbus_radius
             )
         else:
             # No rotation data available yet

@@ -556,38 +556,52 @@ def draw_line_on_frame(frame: np.ndarray,
                        toric_angle: float = None,
                        incision_angle: float = None,
                        line_color: Tuple[int, int, int] = (0, 255, 255),
-                       line_thickness: int = 3) -> np.ndarray:
+                       line_thickness: int = 2,
+                       preop_limbus_radius: int = None) -> np.ndarray:
     """
     Draw lines on a frame at specified angles from center.
+    Matches Tab 3 (preop axis setup) visual style.
     
     Args:
         frame: Input frame (BGR)
         center: Center point (x, y)
-        radius: Radius for line length calculation
+        radius: Radius for line length calculation (current frame limbus radius)
         transformed_angle: Final transformed reference angle in degrees
         reference_angle: Reference angle from preop
         rotation_angle: Rotation angle detected
         toric_angle: Toric angle (reference + 30)
         incision_angle: Incision angle (reference + 60)
-        line_color: BGR color tuple for reference line
-        line_thickness: Line thickness
+        line_color: BGR color tuple for reference line (default: cyan)
+        line_thickness: Line thickness (default: 2 to match Tab 3)
+        preop_limbus_radius: Preop limbus radius for offset calculation (for toric parallel lines)
     
     Returns:
         Frame with lines drawn
     """
     frame_copy = frame.copy()
     
+    # Use preop limbus radius for offset calculation if provided, otherwise use current radius
+    offset_base_radius = preop_limbus_radius if preop_limbus_radius is not None else radius
     length = int(radius * 1.5)
     
-    # Draw reference line (yellow/cyan)
+    # Draw reference line (broken yellow line) - matches Tab 3
     angle_rad = np.radians(transformed_angle)
     x1 = int(center[0] + length * np.cos(angle_rad))
     y1 = int(center[1] + length * np.sin(angle_rad))
     x2 = int(center[0] - length * np.cos(angle_rad))
     y2 = int(center[1] - length * np.sin(angle_rad))
-    cv2.line(frame_copy, (x1, y1), (x2, y2), line_color, line_thickness)
+    # Draw broken/dotted yellow line (simulate with segments)
+    num_segments = 20
+    dx = (x2 - x1) / num_segments
+    dy = (y2 - y1) / num_segments
+    for i in range(0, num_segments, 2):  # Draw every other segment for dotted effect
+        seg_x1 = int(x1 + i * dx)
+        seg_y1 = int(y1 + i * dy)
+        seg_x2 = int(x1 + (i + 1) * dx)
+        seg_y2 = int(y1 + (i + 1) * dy)
+        cv2.line(frame_copy, (seg_x1, seg_y1), (seg_x2, seg_y2), (0, 255, 255), line_thickness)  # Yellow in BGR
     
-    # Draw toric line (if provided)
+    # Draw toric line (if provided) - matches Tab 3 style: green, dotted, with parallel offset lines
     # Calculate relative to transformed reference angle (base = reference)
     if toric_angle is not None:
         # Offset between toric and reference is constant; keep offset but rotate with reference
@@ -604,9 +618,38 @@ def draw_line_on_frame(frame: np.ndarray,
         y1 = int(center[1] + length * np.sin(angle_rad))
         x2 = int(center[0] - length * np.cos(angle_rad))
         y2 = int(center[1] - length * np.sin(angle_rad))
-        cv2.line(frame_copy, (x1, y1), (x2, y2), (0, 255, 0), line_thickness)  # Green for toric
+        
+        # Draw main toric line (solid royal blue)
+        # Royal blue: RGB(65, 105, 225) = BGR(225, 105, 65)
+        cv2.line(frame_copy, (x1, y1), (x2, y2), (225, 105, 65), line_thickness)  # Royal blue for toric
+        
+        # Draw two parallel offset lines on both sides (solid royal blue)
+        # Offset distance is 5% of preop limbus radius
+        offset_distance = max(1, int(offset_base_radius * 0.05))
+        
+        # Calculate perpendicular direction (rotate by 90 degrees)
+        # Perpendicular vector: (-sin(angle), cos(angle))
+        perp_x = -np.sin(angle_rad)
+        perp_y = np.cos(angle_rad)
+        
+        # Offset line 1 (one side)
+        # In OpenCV, y increases downward, so we add perp_y (opposite of Qt which subtracts)
+        x1_offset1 = int(x1 + offset_distance * perp_x)
+        y1_offset1 = int(y1 + offset_distance * perp_y)
+        x2_offset1 = int(x2 + offset_distance * perp_x)
+        y2_offset1 = int(y2 + offset_distance * perp_y)
+        # Draw offset line 1 (solid royal blue)
+        cv2.line(frame_copy, (x1_offset1, y1_offset1), (x2_offset1, y2_offset1), (225, 105, 65), line_thickness)
+        
+        # Offset line 2 (other side)
+        x1_offset2 = int(x1 - offset_distance * perp_x)
+        y1_offset2 = int(y1 - offset_distance * perp_y)
+        x2_offset2 = int(x2 - offset_distance * perp_x)
+        y2_offset2 = int(y2 - offset_distance * perp_y)
+        # Draw offset line 2 (solid royal blue)
+        cv2.line(frame_copy, (x1_offset2, y1_offset2), (x2_offset2, y2_offset2), (225, 105, 65), line_thickness)
     
-    # Draw incision line (if provided)
+    # Draw incision line (if provided) - matches Tab 3 style: red, solid, thickness 2
     # Calculate relative to transformed reference angle (base = reference)
     if incision_angle is not None:
         # Offset between incision and reference is constant; keep offset but rotate with reference
@@ -627,9 +670,20 @@ def draw_line_on_frame(frame: np.ndarray,
     
     cv2.circle(frame_copy, center, 8, (0, 255, 0), -1)
     
+    # Draw limbus circle (broken green line) - matches Tab 3
+    # Draw broken/dotted green circle by drawing arc segments
+    num_circle_segments = 60
+    for i in range(0, num_circle_segments, 2):  # Draw every other segment for dotted effect
+        angle1 = 2 * np.pi * i / num_circle_segments
+        angle2 = 2 * np.pi * (i + 1) / num_circle_segments
+        x1_circle = int(center[0] + radius * np.cos(angle1))
+        y1_circle = int(center[1] + radius * np.sin(angle1))
+        x2_circle = int(center[0] + radius * np.cos(angle2))
+        y2_circle = int(center[1] + radius * np.sin(angle2))
+        cv2.line(frame_copy, (x1_circle, y1_circle), (x2_circle, y2_circle), (0, 255, 0), line_thickness)
+    
     # Add text overlay
     text_y = 30
-    cv2.circle(frame_copy, center, radius, (0, 255, 0), 3)
 
     # cv2.putText(frame_copy, f"Ref: {reference_angle:.1f} deg", (10, text_y),
     #            cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)

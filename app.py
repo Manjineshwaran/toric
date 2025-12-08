@@ -203,9 +203,9 @@ class ImageCanvas(QLabel):
         
         import math
         
-        # Draw iris bounding box (green)
+        # Draw iris bounding box (broken green line)
         if self.show_iris_box:
-            painter.setPen(QPen(QColor(0, 255, 0), 2))
+            painter.setPen(QPen(QColor(0, 255, 0), 2, Qt.DotLine))  # Green dotted for limbus circle
             painter.drawEllipse(center_x - radius, center_y - radius, 
                               radius * 2, radius * 2)
             # Draw center point proportional to limbus radius (2.5% of radius, minimum 1 pixel)
@@ -215,9 +215,9 @@ class ImageCanvas(QLabel):
             painter.drawEllipse(center_x - center_point_radius, center_y - center_point_radius,
                               center_point_radius * 2, center_point_radius * 2)
         
-        # Draw reference line at reference_angle
+        # Draw reference line at reference_angle (broken yellow line)
         if self.show_ref_line:
-            painter.setPen(QPen(QColor(0, 255, 255), 2, Qt.SolidLine))  # Cyan for reference
+            painter.setPen(QPen(QColor(255, 255, 0), 2, Qt.DotLine))  # Yellow dotted for reference
             ref_angle_rad = math.radians(self.reference_angle)
             length = int(radius * 1.5)
             x1 = center_x + int(length * math.cos(ref_angle_rad))
@@ -226,9 +226,10 @@ class ImageCanvas(QLabel):
             y2 = center_y + int(length * math.sin(ref_angle_rad))
             painter.drawLine(x1, y1, x2, y2)
         
-        # Draw toric axis at toric_angle
+        # Draw toric axis at toric_angle (solid royal blue line with parallel offset lines)
         if self.show_toric_axis:
-            pen = QPen(QColor(0, 255, 0), 2, Qt.DotLine)  # Green dotted for toric
+            # Royal blue: RGB(65, 105, 225) = QColor(65, 105, 225)
+            pen = QPen(QColor(65, 105, 225), 2, Qt.SolidLine)  # Royal blue solid for toric
             painter.setPen(pen)
             toric_angle_rad = math.radians(self.toric_angle)
             length = int(radius * 1.5)
