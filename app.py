@@ -2139,19 +2139,59 @@ class ToricTrackerUI(QMainWindow):
         dialog.exec_()
     
     def load_video_file(self, dialog):
-        """Open file browser to select video file"""
+        """Open file browser to select video file and verify metadata using FFmpeg"""
         dialog.accept()
         file_path, _ = QFileDialog.getOpenFileName(
             self, "Select Video File", "", 
             "Video Files (*.mp4 *.avi *.mov *.mkv);;All Files (*.*)"
         )
         if file_path:
+            # Use FFmpeg/ffprobe to get correct video metadata (handles corrupted metadata)
+            try:
+                from video_utils import open_video
+                # Open video using FFmpeg to get correct metadata
+                cap = open_video(file_path, is_camera=False)
+                if cap.isOpened():
+                    # Get video properties using FFmpeg
+                    fps = cap.get(cv2.CAP_PROP_FPS)
+                    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+                    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+                    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+                    duration_sec = total_frames / fps if fps > 0 else 0
+                    duration_min = duration_sec / 60.0
+                    
+                    # Display video info with correct metadata
+                    file_name = os.path.basename(file_path)
+                    info_text = f"Input Source: File - {file_name}\n"
+                    info_text += f"Duration: {duration_min:.2f} min ({duration_sec:.1f} sec)\n"
+                    info_text += f"Resolution: {width}x{height} @ {fps:.2f} FPS\n"
+                    info_text += f"Total Frames: {total_frames}"
+                    
+                    self.video_source_label.setText(info_text)
+                    self.video_source_label.setWordWrap(True)
+                    
+                    print(f"[UI] Selected video: {file_path}")
+                    print(f"[UI] Video metadata (from FFmpeg):")
+                    print(f"  Duration: {duration_min:.2f} min ({duration_sec:.1f} sec)")
+                    print(f"  Resolution: {width}x{height}")
+                    print(f"  FPS: {fps:.2f}")
+                    print(f"  Total frames: {total_frames}")
+                    
+                    cap.release()
+                else:
+                    # Fallback if FFmpeg fails
+                    file_name = os.path.basename(file_path)
+                    self.video_source_label.setText(f"Input Source: File - {file_name}")
+                    print(f"[UI] Warning: Could not open video with FFmpeg, using fallback")
+            except Exception as e:
+                # Fallback if there's an error
+                file_name = os.path.basename(file_path)
+                self.video_source_label.setText(f"Input Source: File - {file_name}")
+                print(f"[UI] Error getting video metadata: {e}")
+            
             self.tracking_video_path = file_path
-            file_name = os.path.basename(file_path)
-            self.video_source_label.setText(f"Input Source: File - {file_name}")
             # Save video path to handler for main.py
             self.config_handler.set_intraop_video_path(file_path)
-            print(f"Selected video: {file_path}")
             print(f"[UI] Video path saved to handler for main.py: {file_path}")
     
     def open_live_camera(self, dialog):
