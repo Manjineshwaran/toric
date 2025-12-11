@@ -40,8 +40,12 @@ from preprocess_robust import (
     preprocess_single,
     ImageType,
     Config,
-    detect_limbus
+    detect_limbus,
+    detect_limbus_from_path
 )
+
+# Import handler for freeze confidence threshold
+from handler import get_config_handler
 
 # Import from superpoint module
 from superpoint_6_log_saved import (
@@ -223,7 +227,7 @@ def test_single_rotation_angle(test_angle: int,
         
         # Detect limbus on rotated frame
         try:
-            limbus_detected = detect_limbus(yolo_model, rotated_path)
+            limbus_detected = detect_limbus_from_path(yolo_model, rotated_path, confidence_threshold=0.85)
             if not limbus_detected:
                 try:
                     os.remove(rotated_path)
@@ -503,7 +507,7 @@ def analyze_frame_async(frame_queue: queue.Queue,
                     try:
                         temp_frame_for_limbus = os.path.join(temp_frame_dir, f"temp_limbus_{frame_num:06d}.jpg")
                         cv2.imwrite(temp_frame_for_limbus, frame)
-                        limbus_detected = detect_limbus(yolo_model, temp_frame_for_limbus)
+                        limbus_detected = detect_limbus_from_path(yolo_model, temp_frame_for_limbus, confidence_threshold=0.85)
                         if limbus_detected:
                             limbus_center = limbus_detected.center
                             limbus_radius = limbus_detected.radius
@@ -527,10 +531,14 @@ def analyze_frame_async(frame_queue: queue.Queue,
                     # Use rotation_angle from best result (this is the final calculated rotation)
                     confidence_value = best_result['confidence']
                     
-                    # If confidence > 90%, skip analysis for next 1000 frames for smooth playback
-                    if confidence_value > 0.9:
-                        shared_state.set_skip_analysis(1000)
-                        print(f"[ANALYSIS] Frame {frame_num}: High confidence ({confidence_value*100:.1f}%) - Skipping analysis for next 1000 frames for smooth playback")
+                    # Get freeze confidence threshold from handler
+                    config_handler = get_config_handler()
+                    freeze_threshold = config_handler.get_freeze_confidence_threshold()
+                    
+                    # If confidence exceeds freeze threshold, skip analysis for next 5000 frames for smooth playback
+                    if confidence_value > freeze_threshold:
+                        shared_state.set_skip_analysis(5000)
+                        print(f"[ANALYSIS] Frame {frame_num}: High confidence ({confidence_value*100:.1f}%) > freeze threshold ({freeze_threshold*100:.1f}%) - Skipping analysis for next 5000 frames for smooth playback")
                     
                     shared_state.update(
                         best_result['rotation_angle'],
@@ -630,7 +638,7 @@ def draw_line_on_frame(frame: np.ndarray,
             seg_y2 = int(y1 + (i + 1) * dy)
             cv2.line(frame_copy, (seg_x1, seg_y1), (seg_x2, seg_y2), (0, 255, 255), line_thickness)  # Yellow in BGR
     
-    # Draw toric line (if provided) - matches Tab 3 style: green, dotted, with parallel offset lines
+    # Draw toric line (if provided) - blue solid line with parallel offset lines
     # Calculate relative to transformed reference angle (base = reference)
     if toric_angle is not None:
         # Offset between toric and reference is constant; keep offset but rotate with reference
@@ -648,11 +656,11 @@ def draw_line_on_frame(frame: np.ndarray,
         x2 = int(center[0] - length * np.cos(angle_rad))
         y2 = int(center[1] - length * np.sin(angle_rad))
         
-        # Draw main toric line (solid royal blue)
-        # Royal blue: RGB(65, 105, 225) = BGR(225, 105, 65)
-        cv2.line(frame_copy, (x1, y1), (x2, y2), (225, 105, 65), line_thickness)  # Royal blue for toric
+        # Draw main toric line (solid blue)
+        # Blue: BGR(255, 0, 0)
+        cv2.line(frame_copy, (x1, y1), (x2, y2), (255, 0, 0), line_thickness)  # Blue for toric
         
-        # Draw two parallel offset lines on both sides (solid royal blue)
+        # Draw two parallel offset lines on both sides (solid blue)
         # Offset distance is 5% of preop limbus radius
         offset_distance = max(1, int(offset_base_radius * 0.05))
         
@@ -667,18 +675,18 @@ def draw_line_on_frame(frame: np.ndarray,
         y1_offset1 = int(y1 + offset_distance * perp_y)
         x2_offset1 = int(x2 + offset_distance * perp_x)
         y2_offset1 = int(y2 + offset_distance * perp_y)
-        # Draw offset line 1 (solid royal blue)
-        cv2.line(frame_copy, (x1_offset1, y1_offset1), (x2_offset1, y2_offset1), (225, 105, 65), line_thickness)
+        # Draw offset line 1 (solid blue)
+        cv2.line(frame_copy, (x1_offset1, y1_offset1), (x2_offset1, y2_offset1), (255, 0, 0), line_thickness)
         
         # Offset line 2 (other side)
         x1_offset2 = int(x1 - offset_distance * perp_x)
         y1_offset2 = int(y1 - offset_distance * perp_y)
         x2_offset2 = int(x2 - offset_distance * perp_x)
         y2_offset2 = int(y2 - offset_distance * perp_y)
-        # Draw offset line 2 (solid royal blue)
-        cv2.line(frame_copy, (x1_offset2, y1_offset2), (x2_offset2, y2_offset2), (225, 105, 65), line_thickness)
+        # Draw offset line 2 (solid blue)
+        cv2.line(frame_copy, (x1_offset2, y1_offset2), (x2_offset2, y2_offset2), (255, 0, 0), line_thickness)
     
-    # Draw incision line (if provided) - matches Tab 3 style: red, solid, thickness 2
+    # Draw incision line (if provided) - red solid line, thickness 2
     # Calculate relative to transformed reference angle (base = reference)
     if incision_angle is not None:
         # Offset between incision and reference is constant; keep offset but rotate with reference
@@ -695,7 +703,7 @@ def draw_line_on_frame(frame: np.ndarray,
         y1 = int(center[1] + length * np.sin(angle_rad))
         x2 = int(center[0] - length * np.cos(angle_rad))
         y2 = int(center[1] - length * np.sin(angle_rad))
-        cv2.line(frame_copy, (x1, y1), (x2, y2), (255, 0, 0), line_thickness)  # Red for incision
+        cv2.line(frame_copy, (x1, y1), (x2, y2), (0, 0, 255), line_thickness)  # Red for incision (BGR format)
     
     cv2.circle(frame_copy, center, 8, (0, 255, 0), -1)
     

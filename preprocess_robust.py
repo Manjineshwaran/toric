@@ -246,53 +246,66 @@ def load_yolo_model(model_path: str):
 # ==============================================================================
 
 def detect_limbus(model, image: np.ndarray, 
-                  class_name: str = "dilated limbus") -> Optional[LimbusInfo]:
+                  class_name: str = "dilated limbus",
+                  confidence_threshold: float = 0.85) -> Optional[LimbusInfo]:
     """
     Detect limbus using YOLO model.
     
     Args:
         model: YOLO model
         image: BGR image array
-        class_name: Target class name to detect
+        class_name: Target class name to detect (default: "dilated limbus")
+        confidence_threshold: Minimum confidence threshold (0.0-1.0, default: 0.85)
     
     Returns:
-        LimbusInfo or None if not detected
+        LimbusInfo or None if not detected with sufficient confidence
     """
     results = model(image)[0]
+    
+    # Track best match (highest confidence) for the target class
+    best_match = None
+    best_confidence = 0.0
     
     for box in results.boxes:
         cls_id = int(box.cls[0])
         cls_name = model.names[cls_id]
         
         if cls_name == class_name:
-            x1, y1, x2, y2 = map(int, box.xyxy[0])
-            
-            # Calculate center and radius
-            center_x = (x1 + x2) // 2
-            center_y = (y1 + y2) // 2
-            
-            # Use min dimension for radius (handle elliptical detections)
-            radius = int(min(x2 - x1, y2 - y1) / 2.0)
-            
             # Get confidence
             confidence = float(box.conf[0]) if hasattr(box, 'conf') else 1.0
             
-            return LimbusInfo(
-                center=(center_x, center_y),
-                radius=radius,
-                bbox=(x1, y1, x2, y2),
-                confidence=confidence
-            )
+            # Only consider detections with confidence > threshold
+            if confidence > confidence_threshold:
+                # Keep track of best match (highest confidence)
+                if confidence > best_confidence:
+                    x1, y1, x2, y2 = map(int, box.xyxy[0])
+                    
+                    # Calculate center and radius
+                    center_x = (x1 + x2) // 2
+                    center_y = (y1 + y2) // 2
+                    
+                    # Use min dimension for radius (handle elliptical detections)
+                    radius = int(min(x2 - x1, y2 - y1) / 2.0)
+                    
+                    best_match = LimbusInfo(
+                        center=(center_x, center_y),
+                        radius=radius,
+                        bbox=(x1, y1, x2, y2),
+                        confidence=confidence
+                    )
+                    best_confidence = confidence
     
-    return None
+    return best_match
 
 
-def detect_limbus_from_path(model, image_path: str) -> Optional[LimbusInfo]:
+def detect_limbus_from_path(model, image_path: str, 
+                            class_name: str = "dilated limbus",
+                            confidence_threshold: float = 0.85) -> Optional[LimbusInfo]:
     """Detect limbus from image path"""
     img = cv2.imread(image_path)
     if img is None:
         raise FileNotFoundError(f"Image not found: {image_path}")
-    return detect_limbus(model, img)
+    return detect_limbus(model, img, class_name=class_name, confidence_threshold=confidence_threshold)
 
 
 # ==============================================================================
@@ -991,15 +1004,19 @@ def preprocess_single(image_path: str,
     
     Pipeline Steps:
     1. Load image
-    2. Detect limbus (YOLO)
+    2. Detect limbus (YOLO) on original image
     3. Normalize scale (limbus → standard radius)
     4. Crop around limbus
-    5. Detect and remove glare (if small)
-    6. Conservative CLAHE enhancement
-    7. Optional: Histogram matching to reference
-    8. Detect artifacts
-    9. Create ring mask
-    10. Quality assessment
+    5. Use limbus coordinates from original detection (adjusted for crop)
+    6. Detect and remove glare (if small)
+    7. Conservative CLAHE enhancement
+    8. Optional: Histogram matching to reference
+    9. Detect artifacts
+    10. Create ring mask
+    11. Quality assessment
+    
+    Note: Limbus detection always uses the original image, never preprocessed images.
+          Coordinates are derived from the original detection and adjusted for crop/scale.
     
     Args:
         image_path: Path to input image
@@ -1066,15 +1083,10 @@ def preprocess_single(image_path: str,
     
     cv2.imwrite(os.path.join(output_dir, f"3_{type_str}_cropped.jpg"), cropped)
     
-    # Step 5: Re-detect limbus in cropped image (more accurate)
-    crop_limbus_detected = detect_limbus(model, cropped)
-    if crop_limbus_detected is not None:
-        crop_limbus = crop_limbus_detected
-        if verbose:
-            print(f"[5/10] Limbus re-detected in crop: center={crop_limbus.center}")
-    else:
-        if verbose:
-            print(f"[5/10] Using estimated limbus center in crop")
+    # Step 5: Use limbus coordinates from original detection (adjusted for crop)
+    # Always use coordinates from original image, not from preprocessed images
+    if verbose:
+        print(f"[5/10] Using limbus coordinates from original detection: center={crop_limbus.center}")
     
     # Step 6: Detect and remove glare
     deglared, glare_mask, glare_pct, was_inpainted = remove_glare_safe(cropped)

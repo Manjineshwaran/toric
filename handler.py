@@ -36,6 +36,9 @@ class PipelineConfigHandler:
         # Matching confidence threshold (0.0 - 1.0)
         self._matching_confidence_threshold = 0.75
         
+        # Freeze confidence threshold (0.0 - 1.0) - when match confidence exceeds this, skip analysis for 5000 frames
+        self._freeze_confidence_threshold = 0.85
+        
         # Application mode: 'normal' or 'demo'
         self._app_mode = 'normal'
         
@@ -129,6 +132,17 @@ class PipelineConfigHandler:
         """Set matching confidence threshold (0.0 - 1.0)"""
         with self._config_lock:
             self._matching_confidence_threshold = max(0.0, min(1.0, float(threshold)))
+    
+    # ========== Freeze Confidence Threshold ==========
+    def get_freeze_confidence_threshold(self) -> float:
+        """Get freeze confidence threshold"""
+        with self._config_lock:
+            return self._freeze_confidence_threshold
+    
+    def set_freeze_confidence_threshold(self, threshold: float):
+        """Set freeze confidence threshold (0.0 - 1.0)"""
+        with self._config_lock:
+            self._freeze_confidence_threshold = max(0.0, min(1.0, float(threshold)))
     
     # ========== Application Mode ==========
     def get_app_mode(self) -> str:
@@ -307,6 +321,7 @@ class PipelineConfigHandler:
             self._intraop_yolo_model = "model\\intraop_latest.pt"
             self._yolo_confidence = 0.85
             self._matching_confidence_threshold = 0.75
+            self._freeze_confidence_threshold = 0.85
             self._app_mode = 'normal'
             self._config_submitted = False
             self._preop_image_path = None
@@ -333,6 +348,7 @@ class PipelineConfigHandler:
                 'intraop_model_path': self._intraop_yolo_model,
                 'yolo_confidence': self._yolo_confidence,
                 'matching_confidence_threshold': self._matching_confidence_threshold,
+                'freeze_confidence_threshold': self._freeze_confidence_threshold,
                 'app_mode': self._app_mode,
                 'config_submitted': self._config_submitted,
                 'preop_image_path': self._preop_image_path,

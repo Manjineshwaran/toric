@@ -50,6 +50,9 @@ from merged_pipeline import (
     analyze_frame_async
 )
 
+# Import video utilities for handling corrupted metadata
+from video_utils import open_video
+
 
 def detect_available_cameras(max_cameras: int = 10) -> List[int]:
     """
@@ -254,11 +257,11 @@ def process_video_for_ui_simple(frame_callback: Callable[[np.ndarray, float, flo
     yolo_model = load_yolo_model(yolo_model_path)
     print("  ✓ YOLO model loaded")
     
-    # Open video capture
+    # Open video capture (use FFmpeg for video files to handle corrupted metadata)
     if is_camera_mode:
-        cap = cv2.VideoCapture(camera_index)
+        cap = open_video("", is_camera=True, camera_index=camera_index)
     else:
-        cap = cv2.VideoCapture(intraop_video_path)
+        cap = open_video(intraop_video_path, is_camera=False)
     
     if not cap.isOpened():
         raise ValueError(f"Could not open video source: {intraop_video_path}")
@@ -517,11 +520,11 @@ def process_video_for_ui(frame_callback: Callable[[np.ndarray, float, float], No
     )
     print(f"  ✓ Pre-op features extracted: {preop_feats['keypoints'].shape[1]} keypoints")
     
-    # Open video capture
+    # Open video capture (use FFmpeg for video files to handle corrupted metadata)
     if is_camera_mode:
-        cap = cv2.VideoCapture(camera_index)
+        cap = open_video("", is_camera=True, camera_index=camera_index)
     else:
-        cap = cv2.VideoCapture(intraop_video_path)
+        cap = open_video(intraop_video_path, is_camera=False)
     
     if not cap.isOpened():
         raise ValueError(f"Could not open video source: {intraop_video_path}")

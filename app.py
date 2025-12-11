@@ -226,10 +226,10 @@ class ImageCanvas(QLabel):
             y2 = center_y + int(length * math.sin(ref_angle_rad))
             painter.drawLine(x1, y1, x2, y2)
         
-        # Draw toric axis at toric_angle (solid royal blue line with parallel offset lines)
+        # Draw toric axis at toric_angle (solid blue line with parallel offset lines)
         if self.show_toric_axis:
-            # Royal blue: RGB(65, 105, 225) = QColor(65, 105, 225)
-            pen = QPen(QColor(65, 105, 225), 2, Qt.SolidLine)  # Royal blue solid for toric
+            # Blue: RGB(0, 0, 255) = QColor(0, 0, 255)
+            pen = QPen(QColor(0, 0, 255), 2, Qt.SolidLine)  # Blue solid for toric
             painter.setPen(pen)
             toric_angle_rad = math.radians(self.toric_angle)
             length = int(radius * 1.5)
@@ -266,7 +266,7 @@ class ImageCanvas(QLabel):
         
         # Draw incision axis at incision_angle
         if self.show_incision_axis:
-            painter.setPen(QPen(QColor(255, 0, 0), 2))  # Red for incision
+            painter.setPen(QPen(QColor(255, 0, 0), 2))  # Red for incision (RGB format)
             incision_angle_rad = math.radians(self.incision_angle)
             length = int(radius * 1.5)
             x1 = center_x + int(length * math.cos(incision_angle_rad))
@@ -402,6 +402,9 @@ class ToricTrackerUI(QMainWindow):
         
         if hasattr(self, 'matching_confidence_input'):
             self.matching_confidence_input.setText(str(self.config_handler.get_matching_confidence_threshold()))
+        
+        if hasattr(self, 'freeze_confidence_input'):
+            self.freeze_confidence_input.setText(str(self.config_handler.get_freeze_confidence_threshold()))
         
         # Load app mode from handler
         if hasattr(self, 'radio_normal') and hasattr(self, 'radio_demo'):
@@ -578,10 +581,32 @@ class ToricTrackerUI(QMainWindow):
         matching_confidence_layout.addWidget(matching_confidence_arrow_buttons)
         matching_confidence_layout.addStretch()
         
+        # Freeze confidence threshold (initialize from handler)
+        freeze_confidence_layout = QHBoxLayout()
+        freeze_confidence_label = QLabel("Freeze Confidence Threshold (0.0 – 1.0):")
+        freeze_confidence_label.setStyleSheet("font-size: 11px;")
+        handler = get_config_handler()
+        self.freeze_confidence_input = QLineEdit(str(handler.get_freeze_confidence_threshold()))
+        self.freeze_confidence_input.setFixedWidth(100)
+        self.freeze_confidence_input.setStyleSheet("""
+            QLineEdit {
+                padding: 5px;
+                border: 1px solid #ccc;
+                border-radius: 3px;
+            }
+        """)
+        freeze_confidence_arrow_buttons = self.create_arrow_buttons(self.freeze_confidence_input, 0.0, 1.0)
+        
+        freeze_confidence_layout.addWidget(freeze_confidence_label)
+        freeze_confidence_layout.addWidget(self.freeze_confidence_input)
+        freeze_confidence_layout.addWidget(freeze_confidence_arrow_buttons)
+        freeze_confidence_layout.addStretch()
+        
         yolo_layout.addLayout(preop_layout)
         yolo_layout.addLayout(intraop_layout)
         yolo_layout.addLayout(confidence_layout)
         yolo_layout.addLayout(matching_confidence_layout)
+        yolo_layout.addLayout(freeze_confidence_layout)
         
         yolo_group.setLayout(yolo_layout)
         layout.addWidget(yolo_group)
@@ -1467,6 +1492,14 @@ class ToricTrackerUI(QMainWindow):
                 QMessageBox.warning(self, "Invalid Input", "Matching Confidence Threshold must be a number between 0.0 and 1.0")
                 return
             
+            # Update freeze confidence threshold
+            try:
+                freeze_conf = float(self.freeze_confidence_input.text())
+                self.config_handler.set_freeze_confidence_threshold(freeze_conf)
+            except ValueError:
+                QMessageBox.warning(self, "Invalid Input", "Freeze Confidence Threshold must be a number between 0.0 and 1.0")
+                return
+            
             # Mark configuration as submitted
             self.config_handler.set_config_submitted(True)
             
@@ -1477,6 +1510,8 @@ class ToricTrackerUI(QMainWindow):
             print(f"Mode: {'Normal' if self.radio_normal.isChecked() else 'Demo'}")
             print(f"YOLO Confidence: {self.config_handler.get_yolo_confidence()}")
             print(f"Matching Confidence Threshold: {self.config_handler.get_matching_confidence_threshold()}")
+            print(f"Freeze Confidence Threshold: {self.config_handler.get_freeze_confidence_threshold()}")
+            print(f"Freeze Confidence Threshold: {self.config_handler.get_freeze_confidence_threshold()}")
             print(f"Pre-op model: {self.config_handler.get_preop_model_path()}")
             print(f"Intra-op model: {self.config_handler.get_intraop_model_path()}")
             print("="*50 + "\n")

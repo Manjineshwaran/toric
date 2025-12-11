@@ -32,6 +32,7 @@ import sys
 import os
 from typing import Optional, Tuple
 from dataclasses import dataclass
+from video_utils import open_video
 
 
 @dataclass
@@ -238,12 +239,12 @@ class LimbusDetector70Deg:
             output_path: Optional path to save output video
             show_live: Whether to display live window
         """
-        # Open video source
+        # Open video source (use FFmpeg for video files to handle corrupted metadata)
         if isinstance(video_source, int):
-            cap = cv2.VideoCapture(video_source)
+            cap = open_video("", is_camera=True, camera_index=video_source)
             print(f"[INFO] Opening camera {video_source}...")
         else:
-            cap = cv2.VideoCapture(video_source)
+            cap = open_video(video_source, is_camera=False)
             print(f"[INFO] Opening video: {video_source}")
         
         if not cap.isOpened():
