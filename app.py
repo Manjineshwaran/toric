@@ -1,3 +1,7 @@
+# CRITICAL: Import console suppression FIRST, before any other imports
+# This ensures all subprocess calls (FFmpeg, etc.) don't open console windows
+import suppress_windows_console
+
 import sys
 import os
 import queue
@@ -1610,6 +1614,7 @@ class ToricTrackerUI(QMainWindow):
                 eyelid_upper_ratio=eyelid_upper,
                 eyelid_lower_ratio=eyelid_lower,
                 inner_exclude_ratio=inner_exclude,
+                confidence_threshold=yolo_conf,
                 verbose=True
             )
             
@@ -1699,10 +1704,12 @@ class ToricTrackerUI(QMainWindow):
             self.cropped_image_for_mask = preop_result.original_image.copy()
             
             # Detect limbus in the cropped image
-            # Note: YOLO confidence is set when loading the model, not passed to detect_limbus
+            # Get YOLO confidence from handler
+            yolo_confidence = self.config_handler.get_yolo_confidence()
             self.limbus_info_for_mask = detect_limbus(
                 self.preop_yolo_model, 
-                self.cropped_image_for_mask
+                self.cropped_image_for_mask,
+                confidence_threshold=yolo_confidence
             )
             
             if self.limbus_info_for_mask is None:
@@ -2664,8 +2671,9 @@ class ToricTrackerUI(QMainWindow):
                     else:
                         # Fallback: try to detect limbus from the image
                         try:
-                            # Note: YOLO confidence is set when loading the model
-                            limbus_detected = detect_limbus(self.preop_yolo_model, image)
+                            # Get YOLO confidence from handler
+                            yolo_confidence = self.config_handler.get_yolo_confidence()
+                            limbus_detected = detect_limbus(self.preop_yolo_model, image, confidence_threshold=yolo_confidence)
                             if limbus_detected:
                                 manual_x = self.config_handler.get_manual_x_offset()
                                 manual_y = self.config_handler.get_manual_y_offset()

@@ -56,8 +56,8 @@ class PipelineConfigHandler:
         self._outer_include_ratio = 1.40
         self._crop_width_ratio = 4.0
         self._crop_height_ratio = 3.0
-        self._eyelid_trim_upper_ratio = 1.00
-        self._eyelid_trim_lower_ratio = 1.00
+        self._eyelid_trim_upper_ratio = 0.85
+        self._eyelid_trim_lower_ratio = 0.85
         
         # Preprocessed preop result (stored after preprocessing)
         self._preop_result = None
@@ -330,8 +330,8 @@ class PipelineConfigHandler:
             self._outer_include_ratio = 1.40
             self._crop_width_ratio = 4.0
             self._crop_height_ratio = 3.0
-            self._eyelid_trim_upper_ratio = 1.00
-            self._eyelid_trim_lower_ratio = 1.00
+            self._eyelid_trim_upper_ratio = 0.85
+            self._eyelid_trim_lower_ratio = 0.85
             self._preop_result = None
             self._manual_x_offset = 0
             self._manual_y_offset = 0

@@ -8,13 +8,17 @@ import subprocess
 
 if sys.platform == 'win32':
     # Patch subprocess.Popen to always use CREATE_NO_WINDOW on Windows
+    # Use a class wrapper to preserve inheritance capability
     _original_popen = subprocess.Popen
     
-    def _patched_popen(*args, **kwargs):
-        """Popen wrapper that adds CREATE_NO_WINDOW flag on Windows"""
-        if 'creationflags' not in kwargs:
-            kwargs['creationflags'] = subprocess.CREATE_NO_WINDOW
-        return _original_popen(*args, **kwargs)
+    class _PatchedPopen(_original_popen):
+        """Popen wrapper class that adds CREATE_NO_WINDOW flag on Windows"""
+        def __init__(self, *args, **kwargs):
+            if 'creationflags' not in kwargs:
+                kwargs['creationflags'] = subprocess.CREATE_NO_WINDOW
+            super().__init__(*args, **kwargs)
+    
+    _patched_popen = _PatchedPopen
     
     # Also patch other subprocess functions
     _original_call = subprocess.call
@@ -49,5 +53,6 @@ if sys.platform == 'win32':
     subprocess.check_output = _patched_check_output
     subprocess.run = _patched_run
     
-    print("[INFO] Subprocess console window suppression enabled")
+    # Don't print - this would show a console window if console=False
+    # print("[INFO] Subprocess console window suppression enabled")
 

@@ -227,7 +227,10 @@ def test_single_rotation_angle(test_angle: int,
         
         # Detect limbus on rotated frame
         try:
-            limbus_detected = detect_limbus_from_path(yolo_model, rotated_path, confidence_threshold=0.85)
+            # Get YOLO confidence from handler
+            config_handler = get_config_handler()
+            yolo_confidence = config_handler.get_yolo_confidence()
+            limbus_detected = detect_limbus_from_path(yolo_model, rotated_path, confidence_threshold=yolo_confidence)
             if not limbus_detected:
                 try:
                     os.remove(rotated_path)
@@ -466,6 +469,9 @@ def analyze_frame_async(frame_queue: queue.Queue,
                 cv2.imwrite(temp_frame_path, frame)
                 
                 # Preprocess frame
+                # Get YOLO confidence from handler
+                config_handler = get_config_handler()
+                yolo_confidence = config_handler.get_yolo_confidence()
                 intraop_result = preprocess_single(
                     temp_frame_path,
                     yolo_model,
@@ -477,6 +483,7 @@ def analyze_frame_async(frame_queue: queue.Queue,
                     eyelid_upper_ratio=Config.EYELID_TRIM_UPPER_RATIO,
                     eyelid_lower_ratio=Config.EYELID_TRIM_LOWER_RATIO,
                     inner_exclude_ratio=Config.INNER_EXCLUDE_RATIO,
+                    confidence_threshold=yolo_confidence,
                     verbose=False
                 )
                 
@@ -507,7 +514,10 @@ def analyze_frame_async(frame_queue: queue.Queue,
                     try:
                         temp_frame_for_limbus = os.path.join(temp_frame_dir, f"temp_limbus_{frame_num:06d}.jpg")
                         cv2.imwrite(temp_frame_for_limbus, frame)
-                        limbus_detected = detect_limbus_from_path(yolo_model, temp_frame_for_limbus, confidence_threshold=0.85)
+                        # Get YOLO confidence from handler
+                        config_handler = get_config_handler()
+                        yolo_confidence = config_handler.get_yolo_confidence()
+                        limbus_detected = detect_limbus_from_path(yolo_model, temp_frame_for_limbus, confidence_threshold=yolo_confidence)
                         if limbus_detected:
                             limbus_center = limbus_detected.center
                             limbus_radius = limbus_detected.radius
@@ -782,6 +792,9 @@ def process_video_frame(frame: np.ndarray,
         cv2.imwrite(temp_frame_path, frame)
         
         # Preprocess frame
+        # Get YOLO confidence from handler
+        config_handler = get_config_handler()
+        yolo_confidence = config_handler.get_yolo_confidence()
         intraop_result = preprocess_single(
             temp_frame_path,
             yolo_model,
@@ -790,6 +803,7 @@ def process_video_frame(frame: np.ndarray,
             reference_image=preop_result.processed_image,
             apply_histogram_match=True,
             trim_eyelids=False,  # Can be configured
+            confidence_threshold=yolo_confidence,
             eyelid_upper_ratio=Config.EYELID_TRIM_UPPER_RATIO,
             eyelid_lower_ratio=Config.EYELID_TRIM_LOWER_RATIO,
             inner_exclude_ratio=Config.INNER_EXCLUDE_RATIO,

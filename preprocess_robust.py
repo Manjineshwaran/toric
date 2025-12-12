@@ -998,6 +998,7 @@ def preprocess_single(image_path: str,
                       eyelid_upper_ratio: float = Config.EYELID_TRIM_UPPER_RATIO,
                       eyelid_lower_ratio: float = Config.EYELID_TRIM_LOWER_RATIO,
                       inner_exclude_ratio: float = Config.INNER_EXCLUDE_RATIO,
+                      confidence_threshold: float = 0.85,
                       verbose: bool = True) -> PreprocessResult:
     """
     Complete preprocessing pipeline for a single image.
@@ -1053,7 +1054,7 @@ def preprocess_single(image_path: str,
         print(f"[1/10] Loaded image: {original.shape}")
     
     # Step 2: Detect limbus
-    limbus = detect_limbus(model, original)
+    limbus = detect_limbus(model, original, confidence_threshold=confidence_threshold)
     print("limbus", limbus)
     if limbus is None:
         raise ValueError(f"No limbus detected in: {image_path}")
@@ -1208,6 +1209,7 @@ def preprocess_pair(preop_path: str,
                     eyelid_upper_ratio: float = Config.EYELID_TRIM_UPPER_RATIO,
                     eyelid_lower_ratio: float = Config.EYELID_TRIM_LOWER_RATIO,
                     inner_exclude_ratio: float = Config.INNER_EXCLUDE_RATIO,
+                    confidence_threshold: float = 0.85,
                     verbose: bool = True) -> Tuple[PreprocessResult, PreprocessResult]:
     """
     Preprocess preop and intraop image pair.
@@ -1241,6 +1243,7 @@ def preprocess_pair(preop_path: str,
         eyelid_upper_ratio=eyelid_upper_ratio,
         eyelid_lower_ratio=eyelid_lower_ratio,
         inner_exclude_ratio=inner_exclude_ratio,
+        confidence_threshold=confidence_threshold,
         verbose=verbose,
     )
     
@@ -1252,6 +1255,7 @@ def preprocess_pair(preop_path: str,
         reference_image=preop_result.processed_image if apply_histogram_match else None,
         apply_histogram_match=apply_histogram_match,
         trim_eyelids=trim_eyelids_intraop,
+        confidence_threshold=confidence_threshold,
         eyelid_upper_ratio=eyelid_upper_ratio,
         eyelid_lower_ratio=eyelid_lower_ratio,
         inner_exclude_ratio=inner_exclude_ratio,

@@ -299,16 +299,21 @@ def process_video_for_ui_simple(frame_callback: Callable[[np.ndarray, float, flo
     last_limbus = None  # Store last good detection
     
     # Frame processing settings
-    FRAME_PROCESS_INTERVAL = 4  # Process 1 frame out of every N frames (1 out of 4)
+    FRAME_PROCESS_INTERVAL = 1  # Process all frames (skip 0 frames)
     
     # Calculate frame delay for video timing
-    # Since we process 1/4 frames, show each processed frame for 4x duration to maintain FPS
-    base_frame_delay_ms = max(1, int(1000 / fps)) if fps > 0 else 33
-    frame_delay_ms = base_frame_delay_ms * FRAME_PROCESS_INTERVAL
+    # Target: 5 FPS = 200ms per frame for smooth buttery playback
+    TARGET_FPS = 5.0
+    frame_delay_seconds = 1.0 / TARGET_FPS  # 0.2 seconds per frame for 5 FPS
+    frame_delay_ms = int(1000 / TARGET_FPS)  # 200ms per frame for 5 FPS
+    
+    # Smooth frame pacing: use high-precision timer for buttery smooth playback
+    next_frame_time = time.perf_counter()  # Initialize target time for first frame
     
     print("\n[PROCESSING] Starting video processing...")
-    print(f"[INFO] Fast mode: Processing 1 out of {FRAME_PROCESS_INTERVAL} frames")
-    print(f"[INFO] Frame delay: {frame_delay_ms}ms (adjusted for {FRAME_PROCESS_INTERVAL}x frame skipping)")
+    print(f"[INFO] Processing all frames (skip 0 frames)")
+    print(f"[INFO] Target FPS: {TARGET_FPS} | Frame delay: {frame_delay_ms}ms per frame")
+    print(f"[INFO] Smooth frame pacing enabled for buttery smooth playback")
     
     while cap.isOpened() and not quit_flag_ref[0]:
         # Check pause flag
@@ -320,7 +325,7 @@ def process_video_for_ui_simple(frame_callback: Callable[[np.ndarray, float, flo
         
         frame_num += 1
         
-        # Skip frames: only process every 4th frame (1, 5, 9, 13, ...)
+        # Skip frames logic (currently set to skip 0 frames - process all)
         if (frame_num - 1) % FRAME_PROCESS_INTERVAL != 0:
             # Skip this frame - read and discard without processing
             ret = cap.read()[0]
@@ -328,7 +333,7 @@ def process_video_for_ui_simple(frame_callback: Callable[[np.ndarray, float, flo
                 break
             continue  # Skip all processing for this frame
         
-        # Process this frame (every 4th frame)
+        # Process this frame
         ret, frame = cap.read()
         if not ret:
             break
@@ -337,7 +342,9 @@ def process_video_for_ui_simple(frame_callback: Callable[[np.ndarray, float, flo
         
         # Detect limbus on current frame (fast ~200ms)
         try:
-            limbus_detected = detect_limbus(yolo_model, frame)
+            # Get YOLO confidence from handler
+            yolo_confidence = config_handler.get_yolo_confidence()
+            limbus_detected = detect_limbus(yolo_model, frame, confidence_threshold=yolo_confidence)
             if limbus_detected:
                 last_limbus = limbus_detected
                 current_center = limbus_detected.center
@@ -386,12 +393,21 @@ def process_video_for_ui_simple(frame_callback: Callable[[np.ndarray, float, flo
         except:
             pass
         
-        # Maintain FPS: wait appropriate time for processed frame
+        # BUTTERY SMOOTH FRAME PACING: Maintain precise 5 FPS timing
         if not is_camera_mode:
-            elapsed_ms = int((time.time() - frame_start_time) * 1000)
-            if elapsed_ms < (frame_delay_ms - 2):
-                wait_time = frame_delay_ms - elapsed_ms
-                time.sleep(wait_time / 1000.0)
+            current_time = time.perf_counter()
+            # Calculate how long to wait until next frame should be displayed
+            time_until_next = next_frame_time - current_time
+            
+            if time_until_next > 0:
+                # We're ahead of schedule - sleep precisely until next frame time
+                time.sleep(time_until_next)
+            # If we're behind schedule (time_until_next <= 0), continue immediately
+            # This prevents stuttering when processing takes longer than frame delay
+            
+            # Update next frame target time (always advance by frame_delay_seconds)
+            # This maintains consistent frame rate even if we're behind schedule
+            next_frame_time += frame_delay_seconds
         
         # Print progress
         if frame_num % (120 * FRAME_PROCESS_INTERVAL) == 0:
@@ -552,20 +568,25 @@ def process_video_for_ui(frame_callback: Callable[[np.ndarray, float, float], No
     frame_queue = queue.Queue()
     
     # Frame processing settings
-    FRAME_PROCESS_INTERVAL = 4  # Process 1 frame out of every N frames (1 out of 4)
+    FRAME_PROCESS_INTERVAL = 1  # Process all frames (skip 0 frames)
     FRAME_SKIP_INTERVAL = 60  # Analyze 1 frame every N frames (for analysis thread)
     MIN_CONFIDENCE_THRESHOLD = matching_confidence_threshold
     
     # Calculate frame delay for video timing
-    # Since we process 1/4 frames, show each processed frame for 4x duration to maintain FPS
-    base_frame_delay_ms = max(1, int(1000 / fps)) if fps > 0 else 33
-    frame_delay_ms = base_frame_delay_ms * FRAME_PROCESS_INTERVAL
+    # Target: 5 FPS = 200ms per frame for smooth buttery playback
+    TARGET_FPS = 5.0
+    frame_delay_seconds = 1.0 / TARGET_FPS  # 0.2 seconds per frame for 5 FPS
+    frame_delay_ms = int(1000 / TARGET_FPS)  # 200ms per frame for 5 FPS
+    
+    # Smooth frame pacing: use high-precision timer for buttery smooth playback
+    next_frame_time = time.perf_counter()  # Initialize target time for first frame
     
     print(f"\n[CONFIG] Processing configuration:")
-    print(f"  Frame process interval: {FRAME_PROCESS_INTERVAL} (process 1 out of {FRAME_PROCESS_INTERVAL} frames)")
+    print(f"  Frame process interval: {FRAME_PROCESS_INTERVAL} (process all frames, skip 0)")
     print(f"  Analysis skip interval: {FRAME_SKIP_INTERVAL} (analyze 1 out of {FRAME_SKIP_INTERVAL} frames)")
     print(f"  Min confidence threshold: {MIN_CONFIDENCE_THRESHOLD}")
-    print(f"  Frame delay: {frame_delay_ms}ms (adjusted for {FRAME_PROCESS_INTERVAL}x frame skipping)")
+    print(f"  Target FPS: {TARGET_FPS} | Frame delay: {frame_delay_ms}ms per frame")
+    print(f"  Smooth frame pacing enabled for buttery smooth playback")
     
     # Initialize video writer
     # output_video_path = os.path.join(video_output_dir, "output_with_lines.mp4")
@@ -604,7 +625,7 @@ def process_video_for_ui(frame_callback: Callable[[np.ndarray, float, float], No
         
         frame_num += 1
         
-        # Skip frames: only process every 4th frame (1, 5, 9, 13, ...)
+        # Skip frames logic (currently set to skip 0 frames - process all)
         if (frame_num - 1) % FRAME_PROCESS_INTERVAL != 0:
             # Skip this frame - read and discard without processing
             ret = cap.read()[0]
@@ -612,7 +633,7 @@ def process_video_for_ui(frame_callback: Callable[[np.ndarray, float, float], No
                 break
             continue  # Skip all processing for this frame
         
-        # Process this frame (every 4th frame)
+        # Process this frame
         ret, frame = cap.read()
         if not ret:
             break
@@ -651,34 +672,36 @@ def process_video_for_ui(frame_callback: Callable[[np.ndarray, float, float], No
             # Use last good rotation data
             rotation_angle_to_use, limbus_center_to_use, limbus_radius_to_use, confidence_to_use, analyzed_frame_num = last_good_rotation_data
         
-        # Draw lines on frame if we have rotation data
-        if rotation_angle_to_use is not None and analyzed_frame_num > 0:
-            # Detect limbus on CURRENT frame for accurate center position
-            # (YOLO is fast ~200ms, won't cause lag. Heavy processing is in background thread)
-            try:
-                limbus_detected = detect_limbus(yolo_model_main, frame)
-                if limbus_detected:
-                    current_limbus_center = limbus_detected.center
-                    current_limbus_radius = limbus_detected.radius
-                else:
-                    # Fallback to analysis thread data if detection fails
-                    current_limbus_center = limbus_center_to_use if limbus_center_to_use else (width // 2, height // 2)
-                    current_limbus_radius = limbus_radius_to_use if limbus_radius_to_use else min(width, height) // 4
-            except:
-                # Fallback on error
+        # Always detect limbus on CURRENT frame for accurate center position
+        # (YOLO is fast ~200ms, won't cause lag. Heavy processing is in background thread)
+        try:
+            # Get YOLO confidence from handler
+            yolo_confidence = config_handler.get_yolo_confidence()
+            limbus_detected = detect_limbus(yolo_model_main, frame, confidence_threshold=yolo_confidence)
+            if limbus_detected:
+                current_limbus_center = limbus_detected.center
+                current_limbus_radius = limbus_detected.radius
+            else:
+                # Fallback to analysis thread data if detection fails
                 current_limbus_center = limbus_center_to_use if limbus_center_to_use else (width // 2, height // 2)
                 current_limbus_radius = limbus_radius_to_use if limbus_radius_to_use else min(width, height) // 4
-            
+        except:
+            # Fallback on error
+            current_limbus_center = limbus_center_to_use if limbus_center_to_use else (width // 2, height // 2)
+            current_limbus_radius = limbus_radius_to_use if limbus_radius_to_use else min(width, height) // 4
+        
+        # Read checkbox states dynamically if references provided, otherwise use defaults
+        current_show_reference = show_reference_ref[0] if show_reference_ref is not None else show_reference
+        current_show_toric = show_toric_ref[0] if show_toric_ref is not None else show_toric
+        current_show_incision = show_incision_ref[0] if show_incision_ref is not None else show_incision
+        current_show_limbus = show_limbus_ref[0] if show_limbus_ref is not None else show_limbus
+        
+        # Draw lines on frame if we have rotation data
+        if rotation_angle_to_use is not None and analyzed_frame_num > 0:
             # Draw lines using CURRENT frame's limbus + analysis thread's rotation angle
             transformed_angle = reference_angle + rotation_angle_to_use
             # Get preop limbus radius for offset calculation (matches Tab 3)
             preop_limbus_radius = preop_result.limbus_info.radius if preop_result and preop_result.limbus_info else None
-            
-            # Read checkbox states dynamically if references provided, otherwise use defaults
-            current_show_reference = show_reference_ref[0] if show_reference_ref is not None else show_reference
-            current_show_toric = show_toric_ref[0] if show_toric_ref is not None else show_toric
-            current_show_incision = show_incision_ref[0] if show_incision_ref is not None else show_incision
-            current_show_limbus = show_limbus_ref[0] if show_limbus_ref is not None else show_limbus
             
             final_frame = draw_line_on_frame(
                 frame,
@@ -694,8 +717,27 @@ def process_video_for_ui(frame_callback: Callable[[np.ndarray, float, float], No
                 show_limbus=current_show_limbus
             )
         else:
-            # No rotation data available yet
-            final_frame = frame.copy()
+            # No rotation data available yet - only show limbus if checkbox is checked
+            if current_show_limbus:
+                # Get preop limbus radius for offset calculation (matches Tab 3)
+                preop_limbus_radius = preop_result.limbus_info.radius if preop_result and preop_result.limbus_info else None
+                # Draw only limbus circle (no axis lines yet)
+                final_frame = draw_line_on_frame(
+                    frame,
+                    current_limbus_center,
+                    current_limbus_radius,
+                    reference_angle,  # Use reference angle as placeholder (won't be drawn)
+                    reference_angle,
+                    0.0,  # No rotation yet
+                    toric_angle=None,  # Don't show toric line
+                    incision_angle=None,  # Don't show incision line
+                    preop_limbus_radius=preop_limbus_radius,
+                    show_reference=False,  # Don't show reference line
+                    show_limbus=True  # Always show limbus when checkbox is checked
+                )
+            else:
+                # No rotation data and limbus checkbox is off
+                final_frame = frame.copy()
         
         # Write frame to video in background (non-blocking)
         # try:
@@ -719,14 +761,23 @@ def process_video_for_ui(frame_callback: Callable[[np.ndarray, float, float], No
             rotation_str = f"{rotation_angle_to_use:.2f}" if rotation_angle_to_use is not None else "N/A"
             print(f"  Frame {frame_num}: {status} | Rotation: {rotation_str}° | Conf: {confidence_to_use*100:.1f}%")
         
-        # SMOOTH PLAYBACK: Maintain target framerate without blocking
+        # BUTTERY SMOOTH FRAME PACING: Maintain precise 5 FPS timing
         if not is_camera_mode:
-            elapsed_ms = int((time.time() - frame_start_time) * 1000)
-            # Only sleep if significantly ahead of schedule
-            if elapsed_ms < (frame_delay_ms - 2):  # 2ms buffer for processing overhead
-                wait_time = frame_delay_ms - elapsed_ms
-                time.sleep(wait_time / 1000.0)
-            # If behind schedule, continue immediately (smooth playback priority!)
+            current_time = time.perf_counter()
+            # Calculate how long to wait until next frame should be displayed
+            time_until_next = next_frame_time - current_time
+            
+            if time_until_next > 0:
+                # We're ahead of schedule - sleep precisely until next frame time
+                # Use high-precision sleep for smooth timing
+                time.sleep(time_until_next)
+            # If we're behind schedule (time_until_next <= 0), continue immediately
+            # This prevents stuttering when processing takes longer than frame delay
+            
+            # Update next frame target time (always advance by frame_delay_seconds)
+            # This maintains consistent frame rate even if we're behind schedule
+            # The accumulated timing ensures smooth playback over long periods
+            next_frame_time += frame_delay_seconds
     
     # Signal analysis thread to stop
     quit_flag_ref[0] = True
